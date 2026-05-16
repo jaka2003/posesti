@@ -1,0 +1,17 @@
+# Skrivnosti
+.env
+
+# State / logi
+seen.json
+monitor.log
+run.log
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Editor
+.vscode/
+.idea/
