@@ -175,30 +175,31 @@ def send_ntfy(listings: list[dict], logger: logging.Logger) -> bool:
     if not topic:
         return False
     server = (os.environ.get("NTFY_SERVER") or "https://ntfy.sh").strip().rstrip("/") or "https://ntfy.sh"
-    url = f"{server}/{topic}"
+    # JSON publish endpoint: post na root, topic v body. Tako se izognemo
+    # latin-1 omejitvi HTTP headerjev (slovenski znaki Ž, Č, Š).
 
     sent_any = False
     for ad in listings:
-        body = ad["title"]
+        message = ad["title"]
         if ad["price"]:
-            body = f"{ad['title']} — {ad['price']}"
+            message = f"{ad['title']} — {ad['price']}"
         if ad["desc"]:
             desc = ad["desc"]
             if len(desc) > 300:
                 desc = desc[:297] + "..."
-            body = f"{body}\n\n{desc}"
+            message = f"{message}\n\n{desc}"
 
-        headers = {
-            "Title": f"Nov oglas: {ad['title']}",
-            "Click": ad["url"],
-            "Tags": "house_with_garden",
-            "Priority": "default",
+        payload = {
+            "topic": topic,
+            "title": f"Nov oglas: {ad['title']}",
+            "message": message,
+            "click": ad["url"],
+            "tags": ["house_with_garden"],
         }
         try:
             r = requests.post(
-                url,
-                data=body.encode("utf-8"),
-                headers=headers,
+                server,
+                json=payload,
                 impersonate="chrome120",
                 timeout=20,
             )
