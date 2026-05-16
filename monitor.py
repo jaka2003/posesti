@@ -24,7 +24,8 @@ LOG_FILE = BASE_DIR / "monitor.log"
 ENV_FILE = BASE_DIR / ".env"
 
 BASE_URL = "https://www.nepremicnine.net/oglasi-prodaja/gorenjska/posest/cena-do-300000eur/"
-PAGES_TO_FETCH = 3  # 3 strani = do 75 oglasov
+SORT_QUERY = "?s=16"  # s=16 = "Razvrsti po datumu" (najnovejsi prvi)
+PAGES_TO_FETCH = 2    # pri datumskem sortu vsi novi padejo na stran 1; 2 je safety net
 
 # ---------- config / env ----------
 
@@ -294,7 +295,7 @@ def fetch_all_pages(logger: logging.Logger) -> list[dict]:
     listings: list[dict] = []
     seen_ids: set[str] = set()
     for page in range(1, PAGES_TO_FETCH + 1):
-        url = BASE_URL if page == 1 else f"{BASE_URL}{page}/"
+        url = f"{BASE_URL}{SORT_QUERY}" if page == 1 else f"{BASE_URL}{page}/{SORT_QUERY}"
         try:
             html = fetch_page(url)
         except Exception as exc:
