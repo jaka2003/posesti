@@ -23,7 +23,8 @@ SEEN_FILE = BASE_DIR / "seen.json"
 LOG_FILE = BASE_DIR / "monitor.log"
 ENV_FILE = BASE_DIR / ".env"
 
-URL = "https://www.nepremicnine.net/oglasi-prodaja/gorenjska/posest/cena-do-300000eur/"
+BASE_URL = "https://www.nepremicnine.net/oglasi-prodaja/gorenjska/posest/cena-do-300000eur/"
+PAGES_TO_FETCH = 3  # 3 strani = do 75 oglasov
 
 # ---------- config / env ----------
 
@@ -289,18 +290,46 @@ def send_email(listings: list[dict], logger: logging.Logger) -> bool:
 
 # ---------- main ----------
 
+def fetch_all_pages(logger: logging.Logger) -> list[dict]:
+    listings: list[dict] = []
+    seen_ids: set[str] = set()
+    for page in range(1, PAGES_TO_FETCH + 1):
+        url = BASE_URL if page == 1 else f"{BASE_URL}{page}/"
+        try:
+            html = fetch_page(url)
+        except Exception as exc:
+            logger.error("Fetch napaka (stran %d): %s", page, exc)
+            if page == 1:
+                raise
+            break
+
+        page_listings = parse_listings(html)
+        if not page_listings:
+            logger.info("Stran %d: prazna — verjetno zadnja stran.", page)
+            break
+
+        new_on_page = [ad for ad in page_listings if ad["id"] not in seen_ids]
+        for ad in new_on_page:
+            seen_ids.add(ad["id"])
+        listings.extend(new_on_page)
+        logger.info("Stran %d: %d oglasov (%d unikatnih).", page, len(page_listings), len(new_on_page))
+        if len(new_on_page) < len(page_listings) * 0.5:
+            # Vec kot polovica je ze bila na prejsni strani -> verjetno smo na koncu paginacije
+            break
+    return listings
+
+
 def main() -> int:
     load_env()
     logger = setup_logging()
     logger.info("=== Scan zacet ===")
     try:
-        html = fetch_page(URL)
+        listings = fetch_all_pages(logger)
     except Exception as exc:
         logger.error("Fetch napaka: %s", exc)
         return 1
 
-    listings = parse_listings(html)
-    logger.info("Najdenih %d oglasov na strani.", len(listings))
+    logger.info("Skupaj %d oglasov.", len(listings))
     if not listings:
         logger.warning("Nic oglasov — verjetno se je HTML spremenil ali blokada.")
         return 2
